@@ -9,9 +9,8 @@ from numpy.typing import NDArray
 
 class PointSAM(TypedDict):
 
-    x: float
-    y: float
-
+    x:     float
+    y:     float
     label: int
 
 

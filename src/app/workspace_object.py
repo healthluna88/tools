@@ -78,8 +78,5 @@ class WorkspaceObject(QObject):
     def load_from(self, data):
         self.core.load_from(data)
 
-    def save(self) -> None:
-        self.core.save()
-
     def export_remote_annotations(self) -> dict:
         return self.core.export_remote_annotations()

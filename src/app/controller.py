@@ -88,7 +88,7 @@ class Controller(QObject):
         # self._segmenter.status.connect... (Removed)
 
     def close(self) -> None:
-        self._workspace.save()
+        pass
 
     # --- Helper: Visualization ---
 

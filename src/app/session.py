@@ -18,9 +18,9 @@ class SessionPhase(Enum):
 
 @dataclass
 class WorkspaceSession:
-    """Central application state (NOT a Qt widget)."""
 
     generation: int = 0
+
     phase: SessionPhase = SessionPhase.IDLE
 
     current_metadata: Optional[dict] = None

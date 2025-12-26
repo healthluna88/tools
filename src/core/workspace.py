@@ -82,12 +82,6 @@ class Workspace:
         self.pipeline = Pipeline.from_dict(data.get("pipeline", Pipeline().to_dict()))
         self.polygons = polygons_norm_to_px(data.get("polygons", []) or [], width = w, height = h)
 
-    def save(self) -> None:
-
-        if self.image_path is None or self.image is None:
-
-            return
-
     def export_remote_annotations(self) -> dict:
 
         if self.image_path is None or self.image is None:
@@ -104,12 +98,6 @@ class Workspace:
             v0 = { "sam": points, "polygons": polygons, "pipeline": self.pipeline.to_dict() }
 
         return { "v0": v0 }
-
-    def save_embedding(self) -> None:
-
-        if self.embedding is not None:
-
-            np.save(self.embedding_path, self.embedding)
 
     def _clear(self) -> None:
 

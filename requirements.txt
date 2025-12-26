@@ -1,0 +1,15 @@
+numpy
+opencv-python
+scikit-image
+torch
+torchvision
+
+requests
+
+PySide6
+PySide6_Addons
+PySide6_Essentials
+
+git+https://github.com/facebookresearch/segment-anything.git
+
+pyinstaller

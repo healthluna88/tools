@@ -3,7 +3,6 @@ import numpy as np
 from PySide6.QtCore import Qt, Slot, QThreadPool
 
 from infra.scheduler import TaskScheduler
-from infra.segmenter_service import SegmenterService
 from infra.repository import Repository
 from PySide6.QtWidgets import QGridLayout, QWidget, QMainWindow, QDockWidget, QMessageBox, QProgressDialog, QHBoxLayout, QLabel, QToolBar
 
@@ -14,12 +13,13 @@ from .explorer.explorer import Explorer
 from .pipeline_editor import PipelineEditor
 from .annotator import Annotator
 from .viewer import Viewer
+
 from app.workspace_object import WorkspaceObject
 
 
 class Window(QMainWindow):
 
-    def __init__(self, base_cache_dir: str, base_url: str):
+    def __init__(self, base_cache_dir: str, base_url: str, segmenter):
 
         super().__init__()
 
@@ -30,10 +30,17 @@ class Window(QMainWindow):
         threadpool = QThreadPool.globalInstance()
 
         self._scheduler = TaskScheduler(threadpool = threadpool)
-        self._segmenter = SegmenterService()
         self._repo = Repository.build(base_url)
 
-        controller = Controller(workspace, base_url = base_url, scheduler = self._scheduler, segmenter = self._segmenter, repo = self._repo)
+        # Pass the pre-loaded segmenter to Controller
+        controller = Controller(
+            workspace,
+            base_url = base_url,
+            scheduler = self._scheduler,
+            repo = self._repo,
+            segmenter = segmenter
+        )
+
         controller.image_selected.connect(self._on_image_selected)
         controller.segment_mask.connect(self._on_segment_mask)
         controller.generate_polygon.connect(self._on_polygon_generated)

@@ -108,10 +108,6 @@ class Segmenter:
 
     def __init__(self):
 
-        self._predictor = None
-
-    def init(self):
-
         self._predictor = Segmenter.Predictor()
 
     def set_image(self, image, embedding = None) -> np.ndarray:

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import logging
 import os
 import sys
-import logging
 
-from PySide6.QtCore import QStandardPaths, Qt
-from PySide6.QtGui import QPixmap, QPainter, QColor, QFont
+from PySide6.QtCore    import Qt, QStandardPaths
+from PySide6.QtGui     import QColor, QFont, QPainter, QPixmap
 from PySide6.QtWidgets import QApplication, QSplashScreen
 
 from core.ai.segmenter import Segmenter
@@ -13,20 +13,19 @@ from core.ai.segmenter import Segmenter
 from ui.window import Window
 
 
-# Helper to create a simple splash pixmap programmatically
-def create_splash_pixmap():
+def splash_pixmap():
 
-    pixmap = QPixmap(400, 200)
+    font = QFont("Arial", 32, QFont.Weight.Bold)
+
+    pixmap = QPixmap(500, 300)
     pixmap.fill(QColor("#333333"))
 
     painter = QPainter(pixmap)
-    painter.setPen(QColor("#FFFFFF"))
-
-    font = QFont("Arial", 20, QFont.Weight.Bold)
     painter.setFont(font)
-    painter.drawText(pixmap.rect(), Qt.AlignmentFlag.AlignCenter, "Annotation Tool")
-
+    painter.setPen(QColor("#FFFFFF"))
+    painter.drawText(pixmap.rect(), Qt.AlignmentFlag.AlignCenter, "晶准医学影像标注")
     painter.end()
+
     return pixmap
 
 
@@ -36,41 +35,32 @@ def main() -> None:
 
     app = QApplication(sys.argv)
 
-    # --- Setup Splash Screen ---
-    splash_pix = create_splash_pixmap()
-    splash = QSplashScreen(splash_pix, Qt.WindowType.WindowStaysOnTopHint)
+    splash = QSplashScreen(splash_pixmap())
+    splash.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
     splash.show()
 
-    def update_splash(msg):
+    def update_splash(message):
 
-        splash.showMessage(f"\n\n\n\n{msg}", Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignCenter, QColor("white"))
+        splash.showMessage(f"{message}", Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignCenter, QColor("white"))
 
         app.processEvents()
 
-    # --- Load Resources ---
+    update_splash("Initializing AI ...")
 
-    update_splash("Initializing Segmenter Model...\n(This may take a few seconds)")
-
-    # Pre-load the heavy model here. This blocks, but that's what we want for a splash screen.
     try:
 
         segmenter = Segmenter()
-        segmenter.init()
-        print("Segmenter model initialized")
 
     except Exception as e:
 
-        # Fallback if model loading fails (e.g. missing weights), allows app to open but segmentation won't work
+        segmenter = None
 
         logging.error(f"Failed to load Segmenter: {e}")
-        segmenter = None
-        update_splash(f"Error loading model: {e}")
 
-    update_splash("Initializing UI...")
+    update_splash("Initializing window ...")
 
     cache_dir = os.path.join(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DownloadLocation), 'jz')
 
-    # Pass the pre-loaded segmenter to the Window
     window = Window(cache_dir, "https://annotation.capitalbioai.com/", segmenter = segmenter)
     window.showMaximized()
 

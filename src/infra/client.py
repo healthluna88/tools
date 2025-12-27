@@ -120,7 +120,7 @@ class HttpClient:
 
         if response.status_code == 403:
 
-            print(f"Encountered 403, attempting auto login...")
+            print(f"Auto login...")
 
             try:
 

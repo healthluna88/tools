@@ -90,6 +90,94 @@ class Controller(QObject):
     def close(self) -> None:
         pass
 
+    @Slot(list)
+    def on_update_points(self, points):
+        print('on_update_points')
+        self._session.dirty = True
+        self._workspace.set_points(copy.deepcopy(points))
+        self._schedule_segmentation()
+
+    @Slot(object)
+    def on_update_pipeline(self):
+        print('on_update_pipeline')
+        self._session.dirty = True
+
+        # Immediate pipeline update if we have cached SAM mask
+        if self._workspace.image is not None and self._cached_mask_sam is not None:
+            self._run_pipeline_segmentation()
+
+    @Slot(object, object)
+    def on_update_polygons(self, image, polygons):
+        print('on_update_polygons')
+        self._session.dirty = True
+        self._workspace.set_polygons(polygons)
+        self.generate_polygon.emit(image, polygons)
+
+    @Slot(object, object)
+    def on_update_polygons_from_canvas(self, polygons):
+        self._session.dirty = True
+        self._workspace.set_polygons(polygons)
+
+    @Slot()
+    def run_segmentation(self):
+        """Called by debounce timer for point updates."""
+        workspace = self._workspace
+
+        if self._segmenter is None:
+            logger.warning("Segmenter not available, skipping segmentation.")
+            return
+
+        params = {
+            "image":    workspace.image,
+            "points":   workspace.points,
+            "pipeline": workspace.pipeline
+        }
+
+        def task():
+            return self._task_segment_points(params)
+
+        token = self._scheduler.submit(generation = 0, fn = task)
+        self._req_kind[token.request] = "segment_points"
+        self._active_seg_req = token.request
+
+    # --- Event Handlers ---
+
+    @Slot(object)
+    def on_image_selected(self, metadata: dict):
+
+        if self._session.phase == SessionPhase.SUBMITTING:
+            return
+
+        self._session.pending_metadata = dict(metadata)
+        print('dirty', self._session.dirty)
+
+        if self._session.current_metadata is None or not self._session.dirty:
+            print('直接读取')
+            self._apply_switch(self._session.pending_metadata)
+            return
+
+        print('先保存')
+        data = self._workspace.export_remote_annotations()
+        self._session.last_submit_metadata = dict(self._session.current_metadata)
+        self._session.last_submit_annotations = dict(data)
+        self._start_update(self._session.last_submit_metadata, self._session.last_submit_annotations, "Annotating")
+
+    @Slot(object)
+    def on_submit_current(self):
+        if self._session.current_metadata is not None:
+            data = self._workspace.export_remote_annotations()
+            self._session.last_submit_metadata = dict(self._session.current_metadata)
+            self._session.last_submit_annotations = dict(data)
+            self._start_update(self._session.last_submit_metadata, self._session.last_submit_annotations, "Submitted")
+
+    @Slot(object)
+    def on_abolish_current(self):
+        if self._session.current_metadata is not None:
+            data = self._workspace.export_remote_annotations()
+            self._session.last_submit_metadata = dict(self._session.current_metadata)
+            self._session.last_submit_annotations = dict(data)
+            self._start_update(self._session.last_submit_metadata, self._session.last_submit_annotations, "Skipped")
+
     # --- Helper: Visualization ---
 
     @staticmethod
@@ -209,44 +297,6 @@ class Controller(QObject):
             "image_ref": image
         }
 
-    # --- Event Handlers ---
-
-    @Slot(object)
-    def on_image_selected(self, metadata: dict):
-
-        if self._session.phase == SessionPhase.SUBMITTING:
-            return
-
-        self._session.pending_metadata = dict(metadata)
-        print('dirty', self._session.dirty)
-
-        if self._session.current_metadata is None or not self._session.dirty:
-            print('直接读取')
-            self._apply_switch(self._session.pending_metadata)
-            return
-
-        print('先保存')
-        data = self._workspace.export_remote_annotations()
-        self._session.last_submit_metadata = dict(self._session.current_metadata)
-        self._session.last_submit_annotations = dict(data)
-        self._start_update(self._session.last_submit_metadata, self._session.last_submit_annotations, "Annotating")
-
-    @Slot(object)
-    def on_submit_current(self):
-        if self._session.current_metadata is not None:
-            data = self._workspace.export_remote_annotations()
-            self._session.last_submit_metadata = dict(self._session.current_metadata)
-            self._session.last_submit_annotations = dict(data)
-            self._start_update(self._session.last_submit_metadata, self._session.last_submit_annotations, "Submitted")
-
-    @Slot(object)
-    def on_abolish_current(self):
-        if self._session.current_metadata is not None:
-            data = self._workspace.export_remote_annotations()
-            self._session.last_submit_metadata = dict(self._session.current_metadata)
-            self._session.last_submit_annotations = dict(data)
-            self._start_update(self._session.last_submit_metadata, self._session.last_submit_annotations, "Skipped")
-
     def _start_update(self, meta: dict, data: dict, status: str) -> None:
         project_id = meta.get("project_id", "")
         case_id = meta.get("case_id", "")
@@ -300,56 +350,6 @@ class Controller(QObject):
         tok = self._scheduler.submit(generation = gen, fn = do_load)
         self._req_kind[tok.request] = "load"
         self._active_submit_req = tok.request
-
-    @Slot(list)
-    def on_update_points(self, points):
-        print('on_update_points')
-        self._session.dirty = True
-        self._workspace.set_points(copy.deepcopy(points))
-        self._schedule_segmentation()
-
-    @Slot(object)
-    def on_update_pipeline(self):
-        print('on_update_pipeline')
-        self._session.dirty = True
-
-        # Immediate pipeline update if we have cached SAM mask
-        if self._workspace.image is not None and self._cached_mask_sam is not None:
-            self._run_pipeline_segmentation()
-
-    @Slot(object, object)
-    def on_update_polygons(self, image, polygons):
-        print('on_update_polygons')
-        self._session.dirty = True
-        self._workspace.set_polygons(polygons)
-        self.generate_polygon.emit(image, polygons)
-
-    @Slot(object, object)
-    def on_update_polygons_from_canvas(self, polygons):
-        self._session.dirty = True
-        self._workspace.set_polygons(polygons)
-
-    @Slot()
-    def run_segmentation(self):
-        """Called by debounce timer for point updates."""
-        workspace = self._workspace
-
-        if self._segmenter is None:
-            logger.warning("Segmenter not available, skipping segmentation.")
-            return
-
-        params = {
-            "image":    workspace.image,
-            "points":   workspace.points,
-            "pipeline": workspace.pipeline
-        }
-
-        def task():
-            return self._task_segment_points(params)
-
-        token = self._scheduler.submit(generation = 0, fn = task)
-        self._req_kind[token.request] = "segment_points"
-        self._active_seg_req = token.request
 
     def _run_pipeline_segmentation(self):
         workspace = self._workspace

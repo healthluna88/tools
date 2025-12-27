@@ -9,24 +9,9 @@ from PySide6.QtGui     import QColor, QFont, QPainter, QPixmap
 from PySide6.QtWidgets import QApplication, QSplashScreen
 
 from core.ai.segmenter import Segmenter
+from ui.splash import CustomSplashScreen
 
 from ui.window import Window
-
-
-def splash_pixmap():
-
-    font = QFont("Arial", 32, QFont.Weight.Bold)
-
-    pixmap = QPixmap(500, 300)
-    pixmap.fill(QColor("#333333"))
-
-    painter = QPainter(pixmap)
-    painter.setFont(font)
-    painter.setPen(QColor("#FFFFFF"))
-    painter.drawText(pixmap.rect(), Qt.AlignmentFlag.AlignCenter, "晶准医学影像标注")
-    painter.end()
-
-    return pixmap
 
 
 def main() -> None:
@@ -35,13 +20,13 @@ def main() -> None:
 
     app = QApplication(sys.argv)
 
-    splash = QSplashScreen(splash_pixmap())
+    splash = CustomSplashScreen()
     splash.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
     splash.show()
 
     def update_splash(message):
 
-        splash.showMessage(f"{message}", Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignCenter, QColor("white"))
+        splash.showMessage(f"{message}", Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop, Qt.GlobalColor.gray)
 
         app.processEvents()
 

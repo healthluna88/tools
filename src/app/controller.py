@@ -27,12 +27,6 @@ class Controller(QObject):
     progress = Signal(int)  # -1 indeterminate, else 0..100
     show_error = Signal(str)
 
-    # Legacy workflow signals (kept for compatibility)
-    submission_started = Signal(dict)
-    submission_succeeded = Signal(dict)
-    submission_failed = Signal(str)
-    submission_finished = Signal()
-
     segment_mask = Signal(np.ndarray)
 
     generate_polygon = Signal(object, object)
@@ -324,11 +318,10 @@ class Controller(QObject):
         self._active_submit_req = token.request
 
     def _on_submit_failed(self, err: str) -> None:
-        self.submission_failed.emit(err)
+        pass
 
     def _on_submit_finished(self) -> None:
         self._session.phase = SessionPhase.ANNOTATING
-        self.submission_finished.emit()
         self.freeze_ui.emit(False, "")
         self.progress.emit(100)
         self.status_text.emit("Ready")

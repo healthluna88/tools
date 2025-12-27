@@ -51,11 +51,6 @@ class Window(QMainWindow):
         controller.progress.connect(self._on_progress)
         controller.show_error.connect(self._on_error)
 
-        # legacy submission signals (kept, but no longer required)
-        # controller.submission_started.connect(self._on_submission_started)
-        controller.submission_failed.connect(self._on_submission_failed)
-        controller.submission_finished.connect(self._on_submission_finished)
-
         toolbar = QToolBar()
         toolbar.setFloatable(False)
         toolbar.setMovable(False)
@@ -215,8 +210,7 @@ class Window(QMainWindow):
         box.exec()
 
         if box.clickedButton() == retry_btn:
-            # Controller will freeze UI again via submission_started.
-            # self._controller.retry_last_submission()
+            # todo retry last submission
             pass
         else:
             # Stay on current workspace.

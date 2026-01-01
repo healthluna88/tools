@@ -57,16 +57,9 @@ class CaseItemWidget(QWidget):
 
 
 class ImageItemWidget(QWidget):
-    """
-    修改点：
-    1. 将 status_lbl 存为成员变量。
-    2. 增加 update_status 方法。
-    """
-
     def __init__(self, metadata):
         super().__init__()
 
-        # 只保存数据，不再持有 Repo/Scheduler
         self.data = metadata
 
         layout = QHBoxLayout(self)
@@ -84,20 +77,8 @@ class ImageItemWidget(QWidget):
         name_lbl = QLabel(metadata.get('name', 'Unknown.jpg'))
         name_lbl.setStyleSheet("font-size: 12px; font-weight: bold;")
 
-        self.status_lbl = QLabel()  # 改为成员变量
-        self.update_status(metadata.get('status', 'Pending'))  # 初始化显示
-
-        info_layout.addWidget(name_lbl)
-        info_layout.addWidget(self.status_lbl)
-        layout.addLayout(info_layout)
-
-        # 初始状态
-        self.set_loading()
-
-    def update_status(self, status: str):
-        """动态更新状态显示"""
-        self.data['status'] = status  # 更新内部数据
-        self.status_lbl.setText(status)
+        status = metadata.get('status', 'Pending')
+        status_lbl = QLabel(status)
 
         # 根据状态设置颜色
         color = "#999"  # Default/Pending
@@ -108,7 +89,14 @@ class ImageItemWidget(QWidget):
         elif status == 'Skipped':
             color = "#ff4d4f"  # Red
 
-        self.status_lbl.setStyleSheet(f"color: {color}; font-size: 10px;")
+        status_lbl.setStyleSheet(f"color: {color}; font-size: 10px;")
+
+        info_layout.addWidget(name_lbl)
+        info_layout.addWidget(status_lbl)
+        layout.addLayout(info_layout)
+
+        # 初始状态
+        self.set_loading()
 
     def set_loading(self):
         self.img_label.setText("Waiting...")

@@ -66,7 +66,6 @@ class Explorer(QWidget):
         toolbar.addWidget(spacer)
         toolbar.addSeparator()
 
-        # 移除刷新按钮，因为列表状态现在会自动维护
         toolbar.addAction('返回上一级', self.on_back)
         layout.addWidget(toolbar)
 
@@ -118,8 +117,7 @@ class Explorer(QWidget):
         self.current_level = prev_state["level"]
         self.current_params = prev_state["params"]
         self.lbl_title.setText(prev_state["title"])
-        # 返回上一级时，execute_request 会强制刷新列表，
-        # 这确保了父级（Case/Project）的状态变更（如果有）能被正确拉取。
+
         self.execute_request()
 
     def _on_query_status_pending_changed(self, checked: bool):
@@ -139,6 +137,7 @@ class Explorer(QWidget):
         self.execute_request()
 
     def execute_request(self):
+        """触发当前级别的列表请求"""
         self.list_widget.clear()
         self._image_item_map.clear()
         self.progress.show()
@@ -229,26 +228,27 @@ class Explorer(QWidget):
             widget.set_image(local_path)
 
     @Slot(str, str, str, str)
-    def update_item_status(self, project_id, case_id, image_id, status):
-        """响应 Controller 的状态更新信号，即时更新列表项"""
+    def on_entity_updated(self, project_id, case_id, image_id, status):
+        """
+        响应 Controller 的状态更新信号。
+        不再进行本地 Item 状态修补，而是重新拉取列表，确保数据与服务器一致。
+        """
+        refresh_needed = False
 
-        # 仅当当前处于 Image 视图，且属于被修改的 Case 时更新
+        # 1. 如果当前正在查看该 Case 下的图片列表 -> 刷新 (图片状态变了)
         if self.current_level == "image" and str(self.current_case_id) == str(case_id):
+            refresh_needed = True
 
-            # 1. 更新 Widget (视觉反馈)
-            widget = self._image_item_map.get(image_id)
-            if widget:
-                widget.update_status(status)
+        # 2. 如果当前正在查看该 Project 下的 Case 列表 -> 刷新 (Case 的统计/状态可能变了)
+        elif self.current_level == "case" and str(self.current_project_id) == str(project_id):
+            refresh_needed = True
 
-            # 2. 更新 Item Data (数据一致性)
-            # 必须更新 Item 中存储的数据，否则下次双击读取到的还是旧状态
-            for i in range(self.list_widget.count()):
-                item = self.list_widget.item(i)
-                data = item.data(Qt.ItemDataRole.UserRole)
-                if data and str(data.get('id')) == image_id:
-                    data['status'] = status
-                    item.setData(Qt.ItemDataRole.UserRole, data)
-                    break
+        # 3. 如果正在查看 Project 列表 -> 刷新 (Project 的统计/状态可能变了)
+        elif self.current_level == "project":
+            refresh_needed = True
+
+        if refresh_needed:
+            self.execute_request()
 
     def on_item_double_clicked(self, item: QListWidgetItem):
         data = item.data(Qt.ItemDataRole.UserRole)

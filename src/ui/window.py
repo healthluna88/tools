@@ -33,7 +33,6 @@ from ui.login import LoginWidget
 
 
 class BusyPopup(QDialog):
-    # (省略未修改部分...)
     def __init__(self, parent = None):
         super().__init__(parent)
         self.setWindowFlags(Qt.WindowType.Dialog | Qt.WindowType.FramelessWindowHint)
@@ -179,7 +178,6 @@ class Window(QMainWindow):
         central_stack.setCurrentWidget(self._login_widget)
 
     def _init_workspace_ui(self, container: QWidget):
-        # (保持不变...)
         main_layout = QVBoxLayout(container)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
@@ -231,8 +229,8 @@ class Window(QMainWindow):
 
         explorer.image_selected.connect(self._controller.on_image_selected)
 
-        # 新增连接：Controller 状态更新 -> Explorer 局部更新
-        self._controller.entity_status_updated.connect(explorer.update_item_status)
+        # 新增连接：Controller 状态更新 -> Explorer 刷新列表
+        self._controller.entity_status_updated.connect(explorer.on_entity_updated)
 
         dock_res = QDockWidget(self)
         dock_res.setFeatures(QDockWidget.DockWidgetFeature.NoDockWidgetFeatures)
@@ -243,7 +241,6 @@ class Window(QMainWindow):
         self._dock_explorer = dock_res  # 保存引用以便控制显隐
 
     def _switch_mode(self, mode) -> None:
-        # (保持不变...)
         if self._current_mode == mode:
             return
 
@@ -266,7 +263,6 @@ class Window(QMainWindow):
         self._refresh_preview_for_mode(mode)
 
     def _refresh_preview_for_mode(self, mode) -> None:
-        # (保持不变...)
         self._preview_viewer.set_image(None)
 
         if mode == self._seg_mode:

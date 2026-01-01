@@ -25,7 +25,7 @@ from app.services import ProjectService
 from app.workspace import Workspace
 from infra.repository import Repository
 from infra.scheduler import Scheduler
-from ui.explorer.explorer import Explorer
+from ui.explorer import Explorer
 from ui.modes import PolygonMode, SegmentationMode
 from ui.util import roi_with_margin
 from ui.viewer import Viewer

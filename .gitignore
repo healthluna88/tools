@@ -1,0 +1,9 @@
+**/.idea/
+**/__pycache__/
+*.pyc
+*.pth
+*.ttc
+*.ttf
+*.png
+
+.DS_Store

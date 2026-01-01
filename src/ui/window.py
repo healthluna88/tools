@@ -142,6 +142,9 @@ class Window(QMainWindow):
         controller.login_success.connect(self._on_login_success)
         controller.login_fail.connect(self._on_login_fail)
 
+        # [NEW] 工作流结束信号 -> 触发 Explorer 自动加载
+        controller.workflow_finished.connect(self._on_workflow_finished)
+
         # --- 信号连接: Mode -> Window ---
         self._poly_mode.request_regenerate.connect(self._on_req_regenerate)
         self._poly_mode.interactor.final_mask.connect(self._on_final_mask)
@@ -281,8 +284,10 @@ class Window(QMainWindow):
         """登录成功，切换到工作区"""
         self._central_stack.setCurrentWidget(self._workspace_widget)
         self._dock_explorer.show()
-        # 触发 Explorer 加载数据
+
+        # 启动 Explorer 并尝试自动加载任务
         self._explorer.start()
+        self._explorer.try_auto_load()
 
     @Slot(str)
     def _on_login_fail(self, msg):
@@ -290,6 +295,12 @@ class Window(QMainWindow):
         self._central_stack.setCurrentWidget(self._login_widget)
         self._login_widget.show_error(msg)
         self._dock_explorer.hide()
+
+    @Slot(str)
+    def _on_workflow_finished(self, status):
+        """任务提交或废弃完成"""
+        # 尝试自动加载下一张
+        self._explorer.try_auto_load()
 
     # --- 现有槽函数 ---
 

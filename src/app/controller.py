@@ -30,8 +30,11 @@ class Controller(QObject):
     login_success = Signal()
     login_fail = Signal(str)
 
-    # 新增：实体状态更新信号 (project_id, case_id, image_id, new_status)
+    # 实体状态更新信号 (project_id, case_id, image_id, new_status)
     entity_status_updated = Signal(str, str, str, str)
+
+    # [NEW] 工作流结束信号 (status: Submitted/Skipped)
+    workflow_finished = Signal(str)
 
     # (rgba_overlay, binary_mask)
     segment_mask = Signal(np.ndarray, np.ndarray)
@@ -88,10 +91,13 @@ class Controller(QObject):
     def cached_mask_binary(self) -> np.ndarray | None:
         return self._cached_mask_binary
 
-    # --- 新增方法：通知状态更新 ---
     def notify_status_update(self, project_id: str, case_id: str, image_id: str, status: str) -> None:
         """当状态机完成保存、提交或废弃操作后调用此方法"""
         self.entity_status_updated.emit(project_id, case_id, image_id, status)
+
+        # [NEW] 如果是终态，发出工作流结束信号
+        if status in ("Submitted", "Skipped"):
+            self.workflow_finished.emit(status)
 
     # --- 登录逻辑 ---
 

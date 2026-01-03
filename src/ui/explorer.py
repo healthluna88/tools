@@ -14,57 +14,62 @@ class Explorer(QWidget):
     class ProjectItemWidget(QWidget):
         def __init__(self, data):
             super().__init__()
-            self.data = data
             layout = QVBoxLayout(self)
             layout.setContentsMargins(8, 8, 8, 8)
             layout.setSpacing(8)
 
-            name_lbl = QLabel(f"{data.get('name', 'Unknown')}")
-            status_lbl = QLabel(data.get('status', 'Pending'))
-            time_str = data.get('updated_at', '').replace('T', ' ').split('.')[0]
-            time_lbl = QLabel(f"更新于: {time_str}")
+            self.name_lbl = QLabel()
+            self.status_lbl = QLabel()
+            self.time_lbl = QLabel()
 
             layout_info = QHBoxLayout()
             layout_info.setContentsMargins(0, 0, 0, 0)
-            layout_info.addWidget(status_lbl)
+            layout_info.addWidget(self.status_lbl)
             layout_info.addStretch()
-            layout_info.addWidget(time_lbl)
+            layout_info.addWidget(self.time_lbl)
 
-            layout.addWidget(name_lbl)
+            layout.addWidget(self.name_lbl)
             layout.addLayout(layout_info)
+
+            self.update_data(data)
+
+        def update_data(self, data):
+            self.name_lbl.setText(f"{data.get('name', 'Unknown')}")
+            self.status_lbl.setText(data.get('status', 'Pending'))
+            time_str = data.get('updated_at', '').replace('T', ' ').split('.')[0]
+            self.time_lbl.setText(f"更新于: {time_str}")
 
     class CaseItemWidget(QWidget):
         def __init__(self, data):
             super().__init__()
-            self.data = data
-
             layout = QVBoxLayout(self)
             layout.setContentsMargins(5, 5, 5, 5)
             layout.setSpacing(2)
 
-            # 附件名
+            self.file_lbl = QLabel()
+            self.id_lbl = QLabel()
+            self.status_lbl = QLabel()
+
+            bot_layout = QHBoxLayout()
+            bot_layout.addWidget(self.id_lbl)
+            bot_layout.addStretch()
+            bot_layout.addWidget(self.status_lbl)
+
+            layout.addWidget(self.file_lbl)
+            layout.addLayout(bot_layout)
+
+            self.update_data(data)
+
+        def update_data(self, data):
             att = data.get('attachment', 'No File')
             display_name = (att if len(att) < 20 else att[:15] + "..." + att[-6:])
-            file_lbl = QLabel(display_name)
-
-            # 底部信息
-            bot_layout = QHBoxLayout()
-            id_lbl = QLabel(f"ID: {data.get('id')}")
-
-            status_lbl = QLabel(data.get('status', 'Pending'))
-
-            bot_layout.addWidget(id_lbl)
-            bot_layout.addStretch()
-            bot_layout.addWidget(status_lbl)
-
-            layout.addWidget(file_lbl)
-            layout.addLayout(bot_layout)
+            self.file_lbl.setText(display_name)
+            self.id_lbl.setText(f"ID: {data.get('id')}")
+            self.status_lbl.setText(data.get('status', 'Pending'))
 
     class ImageItemWidget(QWidget):
         def __init__(self, metadata):
             super().__init__()
-
-            self.data = metadata
 
             layout = QHBoxLayout(self)
             layout.setContentsMargins(5, 5, 5, 5)
@@ -78,11 +83,28 @@ class Explorer(QWidget):
 
             # 2. 信息区域
             info_layout = QVBoxLayout()
-            name_lbl = QLabel(metadata.get('name', 'Unknown.jpg'))
-            name_lbl.setStyleSheet("font-size: 12px; font-weight: bold;")
+            self.name_lbl = QLabel()
+            self.name_lbl.setStyleSheet("font-size: 12px; font-weight: bold;")
+
+            self.status_lbl = QLabel()
+            self.status_lbl.setStyleSheet("font-size: 10px;")
+
+            info_layout.addWidget(self.name_lbl)
+            info_layout.addWidget(self.status_lbl)
+            layout.addLayout(info_layout)
+
+            self._current_image_path = None
+            self.update_data(metadata)
+
+            # 初始状态如果是新的，可能需要显示 Loading，但 update_data 会处理状态文本
+            if not self._current_image_path:
+                self.set_loading()
+
+        def update_data(self, metadata):
+            self.name_lbl.setText(metadata.get('name', 'Unknown.jpg'))
 
             status = metadata.get('status', 'Pending')
-            status_lbl = QLabel(status)
+            self.status_lbl.setText(status)
 
             # 根据状态设置颜色
             color = "#999"  # Default/Pending
@@ -93,14 +115,7 @@ class Explorer(QWidget):
             elif status == 'Skipped':
                 color = "#ff4d4f"  # Red
 
-            status_lbl.setStyleSheet(f"color: {color}; font-size: 10px;")
-
-            info_layout.addWidget(name_lbl)
-            info_layout.addWidget(status_lbl)
-            layout.addLayout(info_layout)
-
-            # 初始状态
-            self.set_loading()
+            self.status_lbl.setStyleSheet(f"color: {color}; font-size: 10px;")
 
         def set_loading(self):
             self.img_label.setText("Waiting...")
@@ -113,15 +128,24 @@ class Explorer(QWidget):
 
         def set_image(self, file_path):
             """由 Explorer 外部调用此方法来更新显示"""
+            if self._current_image_path == file_path and os.path.exists(file_path):
+                # 路径没变且文件存在，无需重绘
+                return
+
             if not os.path.exists(file_path):
                 self.set_error()
                 return
 
             pixmap = QPixmap(file_path)
             if not pixmap.isNull():
-                scaled_pix = pixmap.scaled(self.img_label.size(), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+                scaled_pix = pixmap.scaled(
+                    self.img_label.size(),
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation
+                )
                 self.img_label.setPixmap(scaled_pix)
                 self.img_label.setText("")
+                self._current_image_path = file_path
             else:
                 self.img_label.setText("Invalid")
 
@@ -149,7 +173,7 @@ class Explorer(QWidget):
         # [FIX] 请求序列号，解决并发响应导致的列表重复/状态错乱问题
         self._req_sequence = 0
 
-        # UI Filters (用户手动操作时的状态)
+        # UI Filters
         self._query_status_pending = True
         self._query_status_annotating = True
         self._query_status_submitted = False
@@ -236,8 +260,13 @@ class Explorer(QWidget):
         self._is_searching = True
         self.lbl_title.setText("正在查找任务...")
 
-        # 触发当前层级的刷新。在 on_data_loaded 中会处理跳转逻辑
+        # 触发当前层级的刷新。
         self.execute_request()
+
+    def _reset_list(self):
+        """完全清空列表，通常用于层级切换"""
+        self.list_widget.clear()
+        self._image_item_map.clear()
 
     def navigate_to(self, level, params: dict | None = None, title: str = ""):
         if self.current_level != "root":
@@ -254,6 +283,9 @@ class Explorer(QWidget):
         self.current_level = level
         self.current_params = params if params else { }
         self.lbl_title.setText(title)
+
+        # 切换层级时，清空列表
+        self._reset_list()
         self.execute_request()
 
     def on_back(self):
@@ -275,20 +307,18 @@ class Explorer(QWidget):
         self.current_case_name = prev_state.get("case_name", "")
         self.lbl_title.setText(prev_state["title"])
 
+        # 回退层级时，清空列表
+        self._reset_list()
         self.execute_request()
 
     def _on_auto_mode_toggled(self, checked: bool):
         self._auto_mode = checked
-
-        # 切换开关不再影响 UI 控件的状态 (Enable/Disable)
-        # 如果开启了自动模式，重置搜索黑名单并尝试开始
         if checked:
             self._auto_skip_ids.clear()
             self.try_auto_load()
 
     def _on_query_status_pending_changed(self, checked: bool):
         self._query_status_pending = checked
-        # 仅当不在自动搜索过程中时，UI 操作才触发刷新
         if not self._is_searching:
             self.execute_request()
 
@@ -309,24 +339,19 @@ class Explorer(QWidget):
 
     def execute_request(self):
         """触发当前级别的列表请求"""
-        # [FIX] 清空列表是必要的，防止重复。
-        self.list_widget.clear()
-        self._image_item_map.clear()
+        # [MOD] 不再清空列表，以支持 Diff 更新
         self.progress.show()
-        self.list_widget.setEnabled(False)
+        # [MOD] 不再禁用列表，避免视觉闪烁
+        # self.list_widget.setEnabled(False)
 
-        # [FIX] 递增序列号，并混入请求参数中
         self._req_sequence += 1
         req_params = dict(self.current_params)
         req_params["_req_seq"] = self._req_sequence
 
-        # 分离查询条件构造
         filters = []
         if self._is_searching:
-            # 自动加载模式：强制构造独立的查询条件
             filters = ["Pending", "Annotating"]
         else:
-            # 用户浏览模式：完全尊重 UI 设置
             if self._query_status_pending:
                 filters.append("Pending")
             if self._query_status_annotating:
@@ -336,7 +361,6 @@ class Explorer(QWidget):
             if self._query_status_skipped:
                 filters.append("Skipped")
 
-        # 发送请求信号
         self.fetch_requested.emit(self.current_level, req_params, filters)
 
     @Slot(str, dict, dict)
@@ -344,8 +368,6 @@ class Explorer(QWidget):
         if req_type != self.current_level:
             return
 
-        # [FIX] 核心修复：过期响应丢弃
-        # 如果这个响应的序列号不等于当前最新的序列号，说明它是旧的请求，直接丢弃
         resp_seq = request_params.get("_req_seq", -1)
         if resp_seq != self._req_sequence:
             return
@@ -357,60 +379,126 @@ class Explorer(QWidget):
             if self._is_searching:
                 self.lbl_title.setText(f"自动加载出错: {response.get('msg')}")
                 self._is_searching = False
-
+            # [Diff] 错误时可以考虑添加错误提示项，或者清空
+            self.list_widget.clear()
             item = QListWidgetItem(f"Error: {response.get('msg')}")
             self.list_widget.addItem(item)
             return
 
         raw_items = response.get("data", { }).get("items", [])
 
-        # 如果在自动搜索模式，我们需要处理数据并决定下一步
+        # 自动搜索模式下，逻辑特殊，直接使用原始逻辑（因为会触发跳转，跳转会清空列表）
         if self._is_searching:
             self._handle_auto_load_logic(req_type, raw_items)
             return
 
-        # --- 以下为常规显示逻辑 ---
+        # --- 常规显示逻辑：Diff 更新 ---
+
+        # 1. 如果数据为空，显示暂无数据
         if not raw_items:
+            self.list_widget.clear()
+            self._image_item_map.clear()
             item = QListWidgetItem("暂无数据")
             item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.list_widget.addItem(item)
             return
 
-        for entry in raw_items:
-            item = QListWidgetItem(self.list_widget)
+        # 2. 构建现有 Item 的映射 (ID -> Item)
+        # 注意：这里假设暂无数据等特殊 Item 没有 UserRole 数据，会被忽略
+        id_to_item = { }
+        for i in range(self.list_widget.count()):
+            item = self.list_widget.item(i)
+            data = item.data(Qt.ItemDataRole.UserRole)
+            if data and 'id' in data:
+                id_to_item[str(data['id'])] = item
 
-            if req_type == "project":
-                widget = Explorer.ProjectItemWidget(entry)
-                item.setData(Qt.ItemDataRole.UserRole, entry)
+        # 新数据的 ID 集合
+        new_ids = set(str(x['id']) for x in raw_items)
 
-            elif req_type == "case":
-                widget = Explorer.CaseItemWidget(entry)
-                item.setData(Qt.ItemDataRole.UserRole, entry)
+        # 3. 删除：移除新列表中不存在的项
+        # 倒序遍历以安全删除
+        for i in range(self.list_widget.count() - 1, -1, -1):
+            item = self.list_widget.item(i)
+            data = item.data(Qt.ItemDataRole.UserRole)
+            if not data or 'id' not in data:
+                # 移除之前的占位符（如“暂无数据”）
+                self.list_widget.takeItem(i)
+                continue
 
-            elif req_type == "image":
+            eid = str(data['id'])
+            if eid not in new_ids:
+                self.list_widget.takeItem(i)
+                if req_type == "image":
+                    self._image_item_map.pop(eid, None)
+                if eid in id_to_item:
+                    del id_to_item[eid]
+
+        # 4. 新增与更新
+        for idx, entry in enumerate(raw_items):
+            eid = str(entry['id'])
+
+            # 计算图片路径（如果是图片层级）
+            local_path = None
+            if req_type == "image":
                 file_name = entry["name"]
                 cache_dir = os.path.join(self.base_cache_dir, str(self.current_project_id), str(self.current_case_name))
                 local_path = os.path.join(cache_dir, file_name)
-
-                widget = Explorer.ImageItemWidget(entry)
-
-                if os.path.exists(local_path):
-                    widget.set_image(local_path)
-                else:
-                    widget.set_downloading()
-                    self.download_requested.emit(str(entry['id']), local_path)
-
                 entry["image_path"] = local_path
-                item.setData(Qt.ItemDataRole.UserRole, entry)
 
-                # 记录映射
-                self._image_item_map[str(entry['id'])] = widget
+            if eid in id_to_item:
+                # --- 更新 ---
+                item = id_to_item[eid]
+
+                # 检查位置是否正确，不正确则移动
+                current_row = self.list_widget.row(item)
+                if current_row != idx:
+                    self.list_widget.takeItem(current_row)
+                    self.list_widget.insertItem(idx, item)
+
+                # 更新数据
+                item.setData(Qt.ItemDataRole.UserRole, entry)
+                widget = self.list_widget.itemWidget(item)
+                if widget:
+                    widget.update_data(entry)
+                    if req_type == "image" and local_path:
+                        if os.path.exists(local_path):
+                            widget.set_image(local_path)
+                        else:
+                            # 仅当之前不是 Downloading 状态时才触发？或者简单地交给 Widget 判重
+                            # 这里简单处理：如果文件不存在，就显示下载中。
+                            # 实际上如果已经在下载中，Widget 状态可能已经是 Downloading
+                            if not widget._current_image_path:  # 如果还没加载图
+                                widget.set_downloading()
+                                self.download_requested.emit(str(entry['id']), local_path)
 
             else:
-                continue
+                # --- 新增 ---
+                item = QListWidgetItem()
+                widget = None
 
-            item.setSizeHint(widget.sizeHint())
-            self.list_widget.setItemWidget(item, widget)
+                if req_type == "project":
+                    widget = Explorer.ProjectItemWidget(entry)
+                elif req_type == "case":
+                    widget = Explorer.CaseItemWidget(entry)
+                elif req_type == "image":
+                    widget = Explorer.ImageItemWidget(entry)
+                    self._image_item_map[eid] = widget
+
+                    if local_path and os.path.exists(local_path):
+                        widget.set_image(local_path)
+                    elif local_path:
+                        widget.set_downloading()
+                        self.download_requested.emit(str(entry['id']), local_path)
+
+                if widget:
+                    item.setSizeHint(widget.sizeHint())
+                    item.setData(Qt.ItemDataRole.UserRole, entry)
+
+                    self.list_widget.insertItem(idx, item)
+                    self.list_widget.setItemWidget(item, widget)
+
+                    # 记录到 map 中以便后续查找（虽然新增的后面一般不会再用到，但保持一致性）
+                    id_to_item[eid] = item
 
     def _handle_auto_load_logic(self, req_type, items):
         """处理自动跳转的递归查找逻辑"""
@@ -426,9 +514,10 @@ class Explorer(QWidget):
             if self.history_stack:
                 self.on_back()  # 回退会触发上一级的 execute_request，继续循环
             else:
-                # 已经回退到根节点(Project)且无数据，说明真的没有任务了
+                # 已经回退到根节点(Project)且无数据
                 self._is_searching = False
                 self.lbl_title.setText("当前无待办任务")
+                self._reset_list()
                 item = QListWidgetItem("当前无待办任务")
                 item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                 self.list_widget.addItem(item)
@@ -442,10 +531,7 @@ class Explorer(QWidget):
             self._is_searching = False
             self.lbl_title.setText(self.current_case_name)  # 恢复标题
 
-            # 构造完整数据进行发射
             data = dict(target)
-
-            # 计算路径用于加载
             file_name = data["name"]
             cache_dir = os.path.join(self.base_cache_dir, str(self.current_project_id), str(self.current_case_name))
             local_path = os.path.join(cache_dir, file_name)
@@ -461,11 +547,10 @@ class Explorer(QWidget):
             self.image_selected.emit(data)
 
             # 刷新一下列表UI显示当前这一项
-            # [FIX] 这里调用 execute_request 会生成新的 seq，从而使之前的任何延迟响应无效化
+            # 此时切换回了普通模式，execute_request 会加载完整的列表
             self.execute_request()
 
         elif req_type == "case":
-            # 找到 Case -> 进入 Case -> 继续搜图
             case_id = target["id"]
             self.current_case_id = case_id
             self.current_case_name = target["attachment"]
@@ -474,7 +559,6 @@ class Explorer(QWidget):
             self.navigate_to("image", params = { "project_id": self.current_project_id, "case_id": case_id }, title = title)
 
         elif req_type == "project":
-            # 找到 Project -> 进入 Project -> 继续搜 Case
             project_id = target["id"]
             self.current_project_id = project_id
             self.current_case_id = ""
@@ -488,13 +572,15 @@ class Explorer(QWidget):
             self._is_searching = False
             self.lbl_title.setText("自动加载中断")
 
-        item = QListWidgetItem(f"网络错误: {err_msg}")
-        item.setForeground(Qt.GlobalColor.red)
-        self.list_widget.addItem(item)
+        # 只有在列表为空时才显示错误项，或者可以选择清空列表显示错误
+        if self.list_widget.count() == 0:
+            item = QListWidgetItem(f"网络错误: {err_msg}")
+            item.setForeground(Qt.GlobalColor.red)
+            self.list_widget.addItem(item)
 
     @Slot(str, str)
     def on_thumbnail_ready(self, image_id, local_path):
-        widget = self._image_item_map.get(image_id)
+        widget = self._image_item_map.get(str(image_id))
         if widget:
             widget.set_image(local_path)
 
@@ -502,23 +588,16 @@ class Explorer(QWidget):
     def on_entity_updated(self, project_id, case_id, image_id, status):
         """
         响应 Controller 的状态更新信号。
-        如果是自动模式且正在自动搜索中，忽略常规刷新，由搜索逻辑主导。
-        如果不是搜索中，才刷新列表。
         """
         if self._is_searching:
             return
 
         refresh_needed = False
 
-        # 1. 如果当前正在查看该 Case 下的图片列表 -> 刷新 (图片状态变了)
         if self.current_level == "image" and str(self.current_case_id) == str(case_id):
             refresh_needed = True
-
-        # 2. 如果当前正在查看该 Project 下的 Case 列表 -> 刷新 (Case 的统计/状态可能变了)
         elif self.current_level == "case" and str(self.current_project_id) == str(project_id):
             refresh_needed = True
-
-        # 3. 如果正在查看 Project 列表 -> 刷新 (Project 的统计/状态可能变了)
         elif self.current_level == "project":
             refresh_needed = True
 
